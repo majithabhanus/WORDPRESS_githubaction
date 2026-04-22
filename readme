@@ -1,0 +1,15 @@
+“User sends HTTPS request → Apache web server on EC2 handles it → PHP executes WordPress → WordPress interacts with MySQL database → response is sent back to user.”
+
+
+Golden Rules (remember this)
+user_data runs only once
+Always check /var/log/cloud-init-output.log
+Use set -ex
+Add logging
+Recreate instance if needed
+
+
+sudo cat /var/log/user-data.log
+
+
+sudo cat /var/log/cloud-init-output.log
