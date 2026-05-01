@@ -218,7 +218,7 @@ resource "aws_instance" "private_ec2" {
   depends_on = [aws_nat_gateway.nat]
 
   tags = {
-    Name = "Private-App-Server"
+    Name = "Private-App-Server!"
   }
 }
 
