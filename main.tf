@@ -14,7 +14,7 @@ resource "aws_vpc" "main" {
 }
 
 # -----------------------
-# Subnets (2 Public + 1 Private)
+# Subnets
 # -----------------------
 resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.main.id
@@ -114,7 +114,7 @@ resource "aws_route_table_association" "private_assoc" {
 # Security Groups
 # -----------------------
 
-# Public EC2 (Bastion)
+# Bastion SG
 resource "aws_security_group" "bastion_sg" {
   vpc_id = aws_vpc.main.id
 
@@ -122,7 +122,7 @@ resource "aws_security_group" "bastion_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["3.109.132.153/32"] # replace with your IP
+    cidr_blocks = ["3.109.132.153/32"]
   }
 
   egress {
@@ -133,7 +133,7 @@ resource "aws_security_group" "bastion_sg" {
   }
 }
 
-# ALB SG
+# ALB SG (HTTP only)
 resource "aws_security_group" "alb_sg" {
   vpc_id = aws_vpc.main.id
 
@@ -141,16 +141,8 @@ resource "aws_security_group" "alb_sg" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # public access
-  }
-
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
 
   egress {
     from_port   = 0
@@ -168,14 +160,14 @@ resource "aws_security_group" "ec2_sg" {
     from_port       = 80
     to_port         = 80
     protocol        = "tcp"
-    security_groups = [aws_security_group.alb_sg.id] # only ALB can access
+    security_groups = [aws_security_group.alb_sg.id]
   }
 
   ingress {
     from_port       = 22
     to_port         = 22
     protocol        = "tcp"
-    security_groups = [aws_security_group.bastion_sg.id] # SSH via bastion
+    security_groups = [aws_security_group.bastion_sg.id]
   }
 
   egress {
@@ -190,7 +182,6 @@ resource "aws_security_group" "ec2_sg" {
 # EC2 Instances
 # -----------------------
 
-# Bastion (Public)
 resource "aws_instance" "public_ec2" {
   ami           = "ami-0f58b397bc5c1f2e8"
   instance_type = "t2.micro"
@@ -204,7 +195,6 @@ resource "aws_instance" "public_ec2" {
   }
 }
 
-# Private EC2 (App Server)
 resource "aws_instance" "private_ec2" {
   ami           = "ami-0f58b397bc5c1f2e8"
   instance_type = "t2.micro"
@@ -218,7 +208,7 @@ resource "aws_instance" "private_ec2" {
   depends_on = [aws_nat_gateway.nat]
 
   tags = {
-    Name = "Private-App-Server!"
+    Name = "Private-App-Server"
   }
 }
 
@@ -256,32 +246,13 @@ resource "aws_lb" "alb" {
   ]
 }
 
-
-
+# -----------------------
+# HTTP Listener (ONLY)
+# -----------------------
 resource "aws_lb_listener" "http_listener" {
   load_balancer_arn = aws_lb.alb.arn
   port              = 80
   protocol          = "HTTP"
-
-  default_action {
-    type = "redirect"
-
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
-  }
-}
-
-
-resource "aws_lb_listener" "https_listener" {
-  load_balancer_arn = aws_lb.alb.arn
-  port              = 443
-  protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-2016-08"
-
-  certificate_arn = "YOUR_ACM_CERT_ARN"
 
   default_action {
     type             = "forward"
